@@ -1,0 +1,8 @@
+[local]
+localhost ansible_connection=local
+
+[development]
+# dev-server.example.com
+
+[production]
+# prod-server.example.com
