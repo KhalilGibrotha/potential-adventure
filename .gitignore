@@ -6,7 +6,7 @@ ENV/
 
 # Build artifacts
 wheels/
-*.tar.gz
+# *.tar.gz  # Commented out - using LFS for distribution tarballs
 *.egg-info/
 build/
 dist/

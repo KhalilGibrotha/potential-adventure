@@ -11,6 +11,9 @@
 #   make verify          → check bundle contents and statistics  
 #   make requirements    → generate requirements.txt
 #   make clean           → wipe wheels/, .venv/, tarball
+#   make miniconda       → build miniconda distribution for RHEL 9
+#   make ansible         → build ansible distribution
+#   make analytics       → build analytics distribution (default)
 #
 #   Tunables at run-time:
 #       make bundle PYTHON=python3.10            # use a specific interp
@@ -155,6 +158,9 @@ help:
 	@echo "  requirements - Generate requirements.txt from wheels"
 	@echo "  dist         - Create complete distribution with installer"
 	@echo "  clean        - Remove all build artifacts"
+	@echo "  miniconda    - Build Miniconda distribution for RHEL 9"
+	@echo "  ansible      - Build Ansible distribution"
+	@echo "  analytics    - Build Analytics distribution (default)"
 	@echo "  help         - Show this help message"
 	@echo ""
 	@echo "Usage examples:"
@@ -162,3 +168,19 @@ help:
 	@echo "  make bundle                              # Just wheel bundle"
 	@echo "  make PACKAGES=\"numpy pandas\" dist       # Custom packages"
 	@echo "  make PYTHON=python3.10 dist             # Different Python version"
+	@echo "  make miniconda                           # Miniconda for RHEL 9"
+
+## miniconda: Build Miniconda distribution for RHEL 9
+miniconda:
+	@echo "🐍 Building Miniconda distribution for RHEL 9..."
+	@$(MAKE) -C miniconda all
+	@echo "✅ Miniconda distribution ready!"
+
+## ansible: Build Ansible distribution
+ansible:
+	@echo "🔧 Building Ansible distribution..."
+	@$(MAKE) -C ansible all
+	@echo "✅ Ansible distribution ready!"
+
+## analytics: Build Analytics distribution (default target)
+analytics: dist
