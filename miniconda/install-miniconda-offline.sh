@@ -31,6 +31,7 @@ INSTALL_PREFIX=""
 SILENT_MODE=false
 FORCE_INSTALL=false
 DRY_RUN=false
+DEBUG_MODE=false
 
 # Colors for output
 RED='\033[0;31m'
@@ -62,6 +63,13 @@ success() {
     log "${GREEN}SUCCESS: $*${NC}"
 }
 
+# Debug function
+debug() {
+    if [[ "$DEBUG_MODE" == "true" ]]; then
+        log "${BLUE}DEBUG: $*${NC}" >&2
+    fi
+}
+
 # Help function
 show_help() {
     cat << EOF
@@ -76,6 +84,7 @@ Options:
   --silent        Silent installation (no prompts)
   --force         Force installation (overwrite existing)
   --dry-run       Show what would be done without installing
+  --debug         Enable debug output for troubleshooting
   --help          Show this help message
 
 Examples:
@@ -84,6 +93,7 @@ Examples:
   $0 --prefix /opt/miniconda3          # Custom installation path
   $0 --silent --user                   # Silent user installation
   $0 --dry-run                         # Preview installation steps
+  $0 --debug                           # Enable debug output
 
 For more information, see README.md
 EOF
@@ -118,6 +128,10 @@ parse_args() {
                 DRY_RUN=true
                 shift
                 ;;
+            --debug)
+                DEBUG_MODE=true
+                shift
+                ;;
             --help)
                 show_help
                 exit 0
@@ -150,11 +164,54 @@ check_requirements() {
     fi
     
     # Check available disk space (require at least 2GB)
-    local available_space=$(df "$HOME" | awk 'NR==2 {print $4}')
-    local required_space=2097152 # 2GB in KB
+    local check_path="$HOME"
+    local available_space_kb
+    local available_space_gb
     
-    if [[ "$available_space" -lt "$required_space" ]]; then
-        error "Insufficient disk space. Required: 2GB, Available: $((available_space / 1024 / 1024))GB"
+    debug "Checking disk space for path: $check_path"
+    
+    # Use df with -k flag to ensure KB output, and handle different df output formats
+    if command -v df >/dev/null 2>&1; then
+        debug "df command available, testing different output formats..."
+        
+        # Debug: show raw df output
+        debug "Raw df output: $(df -k "$check_path" 2>/dev/null || echo 'df -k failed')"
+        
+        # Try different df approaches for compatibility
+        if available_space_kb=$(df -k "$check_path" 2>/dev/null | awk 'NR==2 {print $4}' 2>/dev/null) && [[ -n "$available_space_kb" ]] && [[ "$available_space_kb" =~ ^[0-9]+$ ]]; then
+            # Standard df output worked
+            debug "Standard df approach succeeded: $available_space_kb KB"
+            available_space_gb=$((available_space_kb / 1024 / 1024))
+        elif available_space_kb=$(df -k "$check_path" 2>/dev/null | tail -1 | awk '{print $4}' 2>/dev/null) && [[ -n "$available_space_kb" ]] && [[ "$available_space_kb" =~ ^[0-9]+$ ]]; then
+            # Try tail approach for wrapped output
+            debug "Tail df approach succeeded: $available_space_kb KB"
+            available_space_gb=$((available_space_kb / 1024 / 1024))
+        elif available_space_kb=$(df -BK "$check_path" 2>/dev/null | awk 'NR==2 {gsub(/K/, "", $4); print $4}' 2>/dev/null) && [[ -n "$available_space_kb" ]] && [[ "$available_space_kb" =~ ^[0-9]+$ ]]; then
+            # Try -BK flag approach
+            debug "-BK df approach succeeded: $available_space_kb KB"
+            available_space_gb=$((available_space_kb / 1024 / 1024))
+        else
+            # Fallback: use statvfs if available, or skip check
+            debug "All df approaches failed, using fallback"
+            warning "Unable to determine disk space reliably. Proceeding with installation..."
+            warning "If you encounter space issues, ensure you have at least 2GB available in $check_path"
+            available_space_kb=999999999  # Large number to bypass check
+            available_space_gb=999
+        fi
+    else
+        debug "df command not available"
+        warning "df command not available. Skipping disk space check..."
+        available_space_kb=999999999
+        available_space_gb=999
+    fi
+    
+    local required_space_kb=2097152 # 2GB in KB
+    local required_space_gb=2
+    
+    info "Available disk space: ${available_space_gb}GB"
+    
+    if [[ "$available_space_kb" -lt "$required_space_kb" ]]; then
+        error "Insufficient disk space. Required: ${required_space_gb}GB, Available: ${available_space_gb}GB"
     fi
     
     success "System requirements check passed"
